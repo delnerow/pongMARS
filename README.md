@@ -1,7 +1,22 @@
 # pongMARS
 Classic PONG game implemented in MIPS on MARS
 
-Deixe as configurações do Bitmap do mIPS como
+## TODO
+* Add bolinha que andar com uma direção e se bater numa raquete inverte direção
+* Fazer velocidade da bolinha aumentar com base no numero de batidas
+* Fazer quinas da raquete angularem a bolinha
+* Fazer bolinha resetar quando ultrapassar os limites do display
+* Atribuir pontuação aos players
+* Mostrar no display a pontuação
+* Fazer IA do 2nd player
+* Tela de inicio para escolher o modo de jogo
+* Opcional: botos de halt (parada da raquete) para cada jogador
+
+## Workings
+Uses Bitmap Display and MMIMO Simulator. Remember to connect both to MIPS.
+
+
+Deixe as configurações do Bitmap do MIPS como
 * Unit Width in Pixels : 8
 * Unit Height in Pixels: 8
 * Display Width in Pixels: 256
