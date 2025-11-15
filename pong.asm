@@ -10,17 +10,27 @@
 				.word 0xFF0000  # vermelho
 				.word 0xFFFFFF  # branco
 			
-		Raquete:	.word 0x000005 # tamanho da raquete
+		Raquete:	.word 0x000007 # tamanho da raquete, atualmente funciona apenas para 7...
+		angulos:
+					.word -1
+					.word -1
+					.word 0
+					.word 0
+					.word 0
+					.word 1
+					.word 1
+
+
 		Dimensao: 	.word 32 # dimensões x e y do jogo
 #===================================================================#
 		p1Raquete: 	
-				.word 4  # posicao y do topo
+				.word 1  # posicao y do topo
 				.word 1 # posicao x
 		p1_up: 		.word 0
 		p1_down: 	.word 0
 #===================================================================#
 		p2Raquete:
-				.word 4  # posicao y do topo
+				.word 1  # posicao y do topo
 				.word 30 # posicao x
 		p2_up:  	.word 0
 		p2_down: 	.word 0
@@ -43,6 +53,7 @@
 
 # loop incial, por enquanto
 main:
+	# j clearScreen
 	jal encostaCanto
 	jal DrawRaquetes # desenha as raquetes no display
 	
@@ -62,25 +73,37 @@ quit:
 # Ver se o y da bola encosta em algum y da raquete
 encostaBola:
 	lw $s3, Raquete  # tamanho da raquete
-	addi $t0, $zero, 0
+	li $t0,0
 	
 	loopEncosta:
-		beq $t0, $s3, moveBola  # nao encostou
-		beq $a3, $a1, inverteBola
+		beq $t0, $s3, resetBola  # nao encostou, mas esta no canto, ent volta pro meio
+		beq $a3, $a1, rebateBola
 		addi $a3, $a3, 1
 		addi $t0, $t0, 1
 		j loopEncosta
 
 	
-inverteBola:
+rebateBola:
 	lw $t1, direcao # componente y
 	lw $t2, direcao + 4 # component x
-	sub $t1, $zero, $t1
+	la $t3, angulos
+	sll $t0, $t0, 2
+	add $t0, $t3, $t0
+	lw $t0, 0($t0)
+	la $t1, ($t0)
 	sub $t2, $zero, $t2
 	sw $t1, direcao
 	sw $t2, direcao + 4 
 	j moveBola
 	
+
+	
+
+inverteY:
+	lw $t1, direcao # componente y
+	sub $t1, $zero, $t1
+	sw $t1, direcao
+	j moveBola
 
 encostaCanto:
 	lw $a0, Bola+4  # x da bola
@@ -91,8 +114,14 @@ encostaCanto:
 	lw $t2, p2Raquete + 4 # x da raquete 2
 	lw $a3, p2Raquete  # y da raquete 2
 	beq $a0, $t2, encostaBola
-	# nn encosta no canto
-	
+	# nn encosta no canto, mas pode encostar no teto/chao
+
+encostaVertical:
+	lw $a1, Bola # y da bola
+	lw $t2, Dimensao
+	beq $a1, $zero, inverteY
+	beq $a1, $t2, inverteY
+	# nao encosta em nada		
 	
 # a0 - x da bola
 # a1 - y da bola
@@ -116,7 +145,22 @@ moveBola:
 	addi $sp, $sp, 4
 	
 	jr $ra
-
+resetBola:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	li $a2, 0
+	jal DrawDot
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	li $t0, 16
+	sw $t0, Bola
+	sw $t0, Bola +4
+	lw $t1, direcao # componente y
+	li $t1, 0
+	sw $t1, direcao
+	la $a0, ($t0)  # x da bola
+	la $a1, ($t0)  # y da bola
+	j moveBola
 # Lida com as teclas pressionadas
 handleInput:
 	lw $t3, KEY_DATA      # armazena teclas escritas
@@ -307,3 +351,18 @@ DrawRaquetes:
 		lw $ra, 0($sp)
 		addi $sp, $sp, 4
 		jr $ra
+clearScreen:
+	li $a2, 0
+	lw $t0, Dimensao
+	li $a0, 0
+	li $a1, 0
+	loopx:
+		beq $a0, $t0, somaY
+		jal DrawDot
+		addi $a0,$a0, 1
+		j loopx
+	somaY:
+		beq $a1, $t0, main
+		addi $a1,$a1, 1
+		j loopx
+		
