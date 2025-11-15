@@ -10,7 +10,7 @@
 				.word 0xFF0000  # vermelho
 				.word 0xFFFFFF  # branco
 			
-		Raquete:	.word 0x000004 # tamanho da raquete
+		Raquete:	.word 0x000005 # tamanho da raquete
 		Dimensao: 	.word 32 # dimensões x e y do jogo
 #===================================================================#
 		p1Raquete: 	
@@ -25,7 +25,14 @@
 		p2_up:  	.word 0
 		p2_down: 	.word 0
 #===================================================================#			
-		
+		Bola:
+			.word 16  #v y da bola
+			.word 16 # x da bola
+		direcao:
+			.word 0 # componente y
+			.word 1 # component x
+		velocidade: .word 0 
+			
 
 
 						
@@ -36,7 +43,9 @@
 
 # loop incial, por enquanto
 main:
+	jal encostaCanto
 	jal DrawRaquetes # desenha as raquetes no display
+	
 	## frames
 	addi $v0, $zero, 32
 	addi $a0, $zero, 60 # ms entre frames
@@ -47,6 +56,68 @@ quit:
     li $v0, 10
     syscall
 
+
+# a3 - y da raquete 
+# a1 - y da bola
+# Ver se o y da bola encosta em algum y da raquete
+encostaBola:
+	lw $s3, Raquete  # tamanho da raquete
+	addi $t0, $zero, 0
+	
+	loopEncosta:
+		beq $t0, $s3, moveBola  # nao encostou
+		beq $a3, $a1, inverteBola
+		addi $a3, $a3, 1
+		addi $t0, $t0, 1
+		j loopEncosta
+
+	
+inverteBola:
+	lw $t1, direcao # componente y
+	lw $t2, direcao + 4 # component x
+	sub $t1, $zero, $t1
+	sub $t2, $zero, $t2
+	sw $t1, direcao
+	sw $t2, direcao + 4 
+	j moveBola
+	
+
+encostaCanto:
+	lw $a0, Bola+4  # x da bola
+	lw $a1, Bola # y da bola
+	lw $t2, p1Raquete + 4 # x da raquete 1
+	lw $a3, p1Raquete  # y da raquete 1
+	beq $a0, $t2, encostaBola
+	lw $t2, p2Raquete + 4 # x da raquete 2
+	lw $a3, p2Raquete  # y da raquete 2
+	beq $a0, $t2, encostaBola
+	# nn encosta no canto
+	
+	
+# a0 - x da bola
+# a1 - y da bola
+moveBola:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	li $a2, 0
+	jal DrawDot
+	
+	lw $t1, direcao + 4 # direcao x
+	add $a0, $a0, $t1
+	sw $a0, Bola + 4
+	lw $t2, direcao # direcao y
+	add $a1, $a1, $t2
+	sw $a1, Bola
+
+	li $a2, 1
+	jal DrawDot
+	
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	
+	jr $ra
+
+# Lida com as teclas pressionadas
 handleInput:
 	lw $t3, KEY_DATA      # armazena teclas escritas
 	li $t0, 1
@@ -75,6 +146,8 @@ p2_is_down:
 	sw $zero, p2_up
 	j handleRaquetes
 
+
+# Transforma os estados das raquetes em movimento, na tela e na variavel de posicao
 handleRaquetes:
 	p1Status:
 	lw $t0, p1_up
@@ -87,14 +160,14 @@ handleRaquetes:
 
 p1MoveUp:
 	lw $t0, p1Raquete
+	beqz $t0, p2Status 
 	lw $t2, Raquete
 	add $t1, $t0, $t2  # ponto mais final y
 	subi $t1, $t1, 1
-	beqz $t0, p2Status 
 	subi $t0, $t0, 1
 	sw $t0, p1Raquete
 	
-	li $a0, 0
+	lw $a0, p1Raquete + 4
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
@@ -102,8 +175,6 @@ p1MoveUp:
 p1MoveDown:
 	lw $t0, p1Raquete
 	add $t1, $zero, $t0
-	
-	
 	lw $t2, Raquete
 	lw $t3, Dimensao
 	add $t4, $t0, $t2
@@ -111,22 +182,21 @@ p1MoveDown:
 	addi $t0, $t0, 1
 	sw $t0, p1Raquete
 	
-	li $a0, 0
+	lw $a0, p1Raquete + 4
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
     	j p2Status
 p2MoveUp:
 	lw $t0, p2Raquete
+	beqz $t0, main 
 	lw $t2, Raquete
 	add $t1, $t0, $t2  # ponto mais final y
 	subi $t1, $t1, 1
-	beqz $t0, main 
 	subi $t0, $t0, 1
 	sw $t0, p2Raquete
-	lw $s6, Dimensao  # onde colocar o x
-	subi $s6, $s6, 1
-	la $a0, ($s6)
+	
+	lw $a0, p2Raquete + 4
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
@@ -143,9 +213,7 @@ p2MoveDown:
 	addi $t0, $t0, 1
 	sw $t0, p2Raquete
 	
-	lw $s6, Dimensao  # onde colocar o x
-	subi $s6, $s6, 1
-	la $a0, ($s6)
+	lw $a0, p2Raquete + 4
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
