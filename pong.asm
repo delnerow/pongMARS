@@ -48,12 +48,20 @@
 		beep: .byte 72
 		duration: .byte 100
 		volume: .byte 127
+		bounce: .byte 120
+		
+		boop: .byte 12 
+		point: .byte 8
 #===================================================================#	
         gameMode:
             .word 1  # ia falsa/verdadeira
 						
 .text   
 .globl main	
+
+lbu $s2, point
+lbu $s0, boop
+jal playBeep
 mainScreen:
 	li $a0, 12
 	li $a1, 5
@@ -71,7 +79,7 @@ mainScreen:
 	li $a1, 15
 	li $a2, 4
 	jal drawP
-	li $t1, 0
+	li $t1, 1
 	waitForInput:
 	## frames
 	addi $v0, $zero, 32
@@ -86,7 +94,7 @@ set1P:
 	sw $t1, gameMode
 	j config
 set2P:
-	li $t1, 1
+	li $t1, 0
 	sw $t1, gameMode
 	j config
 config:
@@ -106,7 +114,7 @@ main:
 	
 	## frames
 	addi $v0, $zero, 32
-	addi $a0, $zero, 54 # ms entre frames
+	addi $a0, $zero, 74 # ms entre frames
 	syscall
 	#jal dotLine
 	
@@ -116,21 +124,21 @@ quit:
     li $v0, 10
     syscall
 
-
+# Entrada $s2 - instrumento
+# $s0 - pitch
 playBeep:
 
 	subi $sp, $sp, 12
 	sw $a0, 0($sp)
 	sw $a2, 4($sp)
 	sw $a3, 8($sp)
-	
+	move $a2, $s2
+	move $a0, $s0
 	li $v0,31
-	la $a0, beep
-	#lw $a0 0($a0)
+	#la $a0, beep
 	la $a1, duration
-	li $a2, 120
+	#li $a2, 120
 	la $a3, volume
-	# lw $a1, 0($a1)
 	syscall
 	
 	lw $a0, 0($sp)
@@ -161,6 +169,8 @@ encostaBola:
 rebateBola:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
+	lbu $s2, bounce
+	lbu $s0, beep
 	jal playBeep
 	lw $ra , 0($sp)
 	addi $sp, $sp, 4
@@ -172,12 +182,21 @@ rebateBola:
 	lw $t0, 0($t0)
 	sw $t0, direcao
 	
+	# se pare no meio, a velocidade amortece
+	bgtz $t2, praDireita
+	praEsquerda:
+	li $v0, -1
+	j amortecer
+	praDireita:
+	li $v0, 1
+	amortecer:
+	beqz $t3, resetVelocidade
 	
 	lw $t4, velocidadeMax
 	bgtz $t2, aceleraBola
 	subi $t2, $t2, 1 # bola fica mais rapida (quando eh negativa a direcao)
 	add $t3, $t2, $t4
-	li $v0, -1
+	li $v0, -2
 	beqz $t3, resetVelocidade
 	sub $t2, $zero, $t2
 	sw $t2, direcao + 4 
@@ -186,7 +205,7 @@ rebateBola:
 	aceleraBola:
 		addi $t2, $t2, 1 # bola fica mais rapida (quando eh negativa a direcao)
 		sub $t3, $t2, $t4
-		li $v0, 1
+		li $v0, 2
 		beqz $t3, resetVelocidade
 		sub $t2, $zero, $t2
 		sw $t2, direcao + 4 
@@ -203,6 +222,8 @@ inverteY:
 	sw $t1, direcao
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
+	lbu $s2, bounce
+	lbu $s0, beep
 	jal playBeep
 	lw $ra , 0($sp)
 	j moveBola
@@ -231,6 +252,7 @@ encostaCanto:
 encostaVertical:
 	lw $a1, Bola # y da bola
 	lw $t2, Dimensao
+	subi $t2, $t2, 1
 	beq $a1, $zero, inverteY
 	beq $a1, $t2, inverteY
 	# nao encosta em nada		
@@ -249,19 +271,28 @@ moveImmediateBola:
 	lw $a1, Bola # y da bola
 	lw $t2, direcao # direcao y
 	add $a1, $a1, $t2
-	sw $a1, Bola
+	# ver se nao ultrapassou os limites do teto/chao
+	lw $s7, Dimensao
+	li $v0, 1
+	bltz $a1, corrigeUltrapassoY
+	li $v0, -1
+	bge $a1, $s7, corrigeUltrapassoY
+	
+	
+	moveX:
 	lw $t1, direcao + 4 # direcao x
 	add $a0, $a0, $t1
 	lw $t2, p1Raquete + 4 # x da raquete 1
 	sub $t2, $a0, $t2
 	li $v0, 1
-	blez $t2, corrigeUltrapasso
+	blez $t2, corrigeUltrapassoX
 	lw $t2, p2Raquete + 4 # x da raquete 2
 	sub $t2, $a0, $t2
 	li $v0, -1
-	bgez $t2, corrigeUltrapasso
+	bgez $t2, corrigeUltrapassoX
 
 	desenha:
+	sw $a1, Bola
 	sw $a0, Bola + 4		
 	li $a2, 1
 	jal DrawDot
@@ -270,10 +301,12 @@ moveImmediateBola:
 	addi $sp, $sp, 4
 	
 	jr $ra
-corrigeUltrapasso:
+corrigeUltrapassoX:
 	add $a0, $a0, $v0
 	j desenha
-	
+corrigeUltrapassoY:
+	add $a1, $a1, $v0
+	j moveX	
 	
 resetBola:
 	addi $sp, $sp, -4
@@ -282,6 +315,8 @@ resetBola:
 	move $s7, $a2
 	li $a2, 0
 	jal DrawDot
+	lbu $s2, bounce
+	lbu $s0, boop
 	jal playBeep
 	
 	li $t0, 16
