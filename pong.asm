@@ -12,13 +12,13 @@
 			
 		Raquete:	.word 0x000007 # tamanho da raquete, atualmente funciona apenas para 7...
 		angulos:
+					.word -2
 					.word -1
 					.word -1
 					.word 0
-					.word 0
-					.word 0
 					.word 1
 					.word 1
+					.word 2
 
 
 		Dimensao: 	.word 32 # dimensões x e y do jogo
@@ -48,8 +48,9 @@
 		beep: .byte 72
 		duration: .byte 100
 		volume: .byte 127
-
-
+#===================================================================#	
+        gameMode:
+            .word 1  # ia falsa/verdadeira
 						
 .text   
 .globl main	
@@ -71,9 +72,10 @@ main:
 	
 	## frames
 	addi $v0, $zero, 32
-	addi $a0, $zero, 54 # ms entre frames
+	addi $a0, $zero, 144 # ms entre frames
 	syscall
 	#jal dotLine
+	
     	j handleInput
     		 	
 quit:
@@ -297,18 +299,37 @@ handleInput:
 	li $t0, 1
 	beq $t3, 119, p1_is_up    # se for 'w'
 	beq $t3, 115, p1_is_down # se for 's'
+    beq $t3, 100, quit     # se for 'd'
+    lw $t2, gameMode
+    bnez $t2, handleIA
+    handleInput2P:
 	beq $t3, 56, p2_is_up    # se for '↑'
-	beq $t3, 50, p2_is_down # se for '↓'
-	beq $t3, 100, quit     # se for 'd'
+	beq $t3, 50, p2_is_down # se for '↓'	
 	j handleRaquetes
+handleIA:
+    lw $t0, Bola #y
+    lw $t1, p2Raquete # Y do topo
+
+    # achando o ponto medio da raquete
+    lw $t3, Raquete
+    srl $t3, $t3, 1
+    add $t1, $t1, $t3
+
+    sub $t3, $t0, $t1  # eixo y eh invertido
+    bgtz $t3, p2_is_down   #raquete ta em cima da bola
+    j p2_is_up  # default seria a raquete estar em baixo da bola
 
 p1_is_up:
 	sw $t0, p1_up
 	sw $zero, p1_down
+	lw $t2, gameMode
+	bnez $t2, handleIA
 	j handleRaquetes
 p1_is_down:
 	sw $t0, p1_down
 	sw $zero, p1_up
+	lw $t2, gameMode
+	bnez $t2, handleIA
 	j handleRaquetes
 	
 p2_is_up:
