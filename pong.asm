@@ -54,10 +54,44 @@
 						
 .text   
 .globl main	
-
+mainScreen:
+	li $a0, 12
+	li $a1, 5
+	li $a2, 4
+	jal draw1
+	li $a0, 17
+	li $a1, 5
+	li $a2, 4
+	jal drawP
+	li $a0, 12
+	li $a1, 15
+	li $a2, 4
+	jal draw2
+	li $a0, 17
+	li $a1, 15
+	li $a2, 4
+	jal drawP
+	li $t1, 0
+	waitForInput:
+	## frames
+	addi $v0, $zero, 32
+	addi $a0, $zero, 1000 # ms entre frames
+	syscall
+	lw $t3, KEY_DATA      # armazena teclas escritas
+	li $t0, 1
+	beq $t3, 49, set1P   # se for '1'
+	beq $t3, 50, set2P # se for '2'
+    	j waitForInput
+set1P:
+	sw $t1, gameMode
+	j config
+set2P:
+	li $t1, 1
+	sw $t1, gameMode
+	j config
 config:
 jal playBeep
- #jal clearScreen
+ jal clearScreen
  jal showScore
  jal DrawRaquetes # desenha as raquetes no display
  
@@ -72,7 +106,7 @@ main:
 	
 	## frames
 	addi $v0, $zero, 32
-	addi $a0, $zero, 144 # ms entre frames
+	addi $a0, $zero, 54 # ms entre frames
 	syscall
 	#jal dotLine
 	
@@ -104,6 +138,8 @@ playBeep:
 	lw $a3, 8($sp) 
 	addi $sp, $sp, 12
 	jr $ra
+
+
 
 # ===================  Dinamica da Bola  ==================== #
 # a3 - y da raquete 
@@ -1291,3 +1327,4 @@ gameWin2:
 	li $a2, 4
 	jal draw2
 	j quit
+
