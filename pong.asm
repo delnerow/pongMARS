@@ -44,7 +44,10 @@
 			.word 0 # componente y
 			.word -1 # component x
 		velocidadeMax: .word 3 
-			
+#===================================================================#	
+		beep: .byte 72
+		duration: .byte 100
+		volume: .byte 127
 
 
 						
@@ -52,10 +55,11 @@
 .globl main	
 
 config:
+jal playBeep
  #jal clearScreen
  jal showScore
  jal DrawRaquetes # desenha as raquetes no display
-
+ 
 # loop incial, por enquanto
 main:
 	lw $a0, p1_score
@@ -77,6 +81,28 @@ quit:
     syscall
 
 
+playBeep:
+
+	subi $sp, $sp, 12
+	sw $a0, 0($sp)
+	sw $a2, 4($sp)
+	sw $a3, 8($sp)
+	
+	li $v0,31
+	la $a0, beep
+	#lw $a0 0($a0)
+	la $a1, duration
+	li $a2, 120
+	la $a3, volume
+	# lw $a1, 0($a1)
+	syscall
+	
+	lw $a0, 0($sp)
+	lw $a2, 4($sp) 
+	lw $a3, 8($sp) 
+	addi $sp, $sp, 12
+	jr $ra
+
 # ===================  Dinamica da Bola  ==================== #
 # a3 - y da raquete 
 # a2 - qual raquete (1 ou 2)
@@ -95,6 +121,11 @@ encostaBola:
 
 	
 rebateBola:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal playBeep
+	lw $ra , 0($sp)
+	addi $sp, $sp, 4
 	lw $t1, direcao # componente y
 	lw $t2, direcao + 4 # component x
 	la $t3, angulos  # lookup table das reflexoes
@@ -132,6 +163,10 @@ inverteY:
 	lw $t1, direcao # componente y
 	sub $t1, $zero, $t1
 	sw $t1, direcao
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal playBeep
+	lw $ra , 0($sp)
 	j moveBola
 
 encostaCanto:
@@ -167,6 +202,8 @@ encostaVertical:
 moveBola:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
+	lw $a0, Bola+4  # x da bola
+	lw $a1, Bola # y da bola
 	li $a2, 0
 	jal DrawDot
 moveImmediateBola:
@@ -203,9 +240,11 @@ corrigeUltrapasso:
 resetBola:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
+	
 	move $s7, $a2
 	li $a2, 0
 	jal DrawDot
+	jal playBeep
 	
 	li $t0, 16
 	sw $t0, Bola
