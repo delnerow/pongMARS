@@ -1,0 +1,447 @@
+# ========== DIGITO 0 ==========
+draw0:
+    #  ###
+    #  # #
+    #  # #
+    #  # #
+    #  # #
+    #  ###
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    addi $s0,$a0,0     # coluna 0-2
+    addi $s1,$a1,0     # linha 0-5
+	
+    # linha 0
+    jal DrawDot
+    addi $a0,$s0,1
+    move $a1, $s1
+     jal DrawDot
+    addi $a0,$s0,2
+    move $a1, $s1
+    jal DrawDot
+    # linhas 1–4
+    addi $a1,$s1,1
+    draw0_loop1:
+        # coluna 0
+        addi $a0,$s0,0
+         jal DrawDot
+        # coluna 2
+        addi $a0,$s0,2
+        jal DrawDot
+        addi $a1,$a1,1
+        addi $t2,$zero,5
+        bne $a1,$t2,draw0_loop1
+
+    # linha 5
+    addi $a0,$s0,0
+    addi $a1,$s1,5
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 1 ==========
+draw1:
+    #   #
+    #   #
+    #   #
+    #   #
+    #   #
+    #   #
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+    li $t3,0
+draw1_loop:
+    addi $a0,$s0,1
+    add  $a1,$s1,$t3
+    jal DrawDot
+    addi $t3,$t3,1
+    blt $t3,6,draw1_loop
+    jr $ra
+
+# ========== DIGITO 2 ==========
+draw2:
+    #  ###
+    #    #
+    #    #
+    #  ###
+    #  #
+    #  ###
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha 0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 1
+    addi $a1,$s1,1
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha 2
+    addi $a1,$s1,2
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha 3
+    addi $a1,$s1,3
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 4
+    addi $a1,$s1,4
+    addi $a0,$s0,0 
+     jal DrawDot
+
+    # linha 5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+    jr $ra
+
+# ========== DIGITO 3 ==========
+draw3:
+    #  ###
+    #    #
+    #    #
+    #  ###
+    #    #
+    #  ###
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha 0
+    addi $a1,$s1,0
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 1
+    addi $a1,$s1,1
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 2
+    addi $a1,$s1,2
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha 3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 4
+    addi $a1,$s1,4
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 5
+    addi $a1,$s1,5
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    jr $ra
+
+# ========== DIGITO 4 ==========
+draw4:
+    #  # #
+    #  # #
+    #  # #
+    #  ###
+    #    #
+    #    #
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linhas 0–2
+    li $t3,0
+draw4_loop1:
+    add $a1,$s1,$t3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    addi $t3,$t3,1
+    blt $t3,3,draw4_loop1
+
+    # linha 3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linhas 4–5
+    addi $a1,$s1,4
+    addi $a0,$s0,2  
+    jal DrawDot
+    addi $a1,$s1,5
+    addi $a0,$s0,2  
+    jal DrawDot
+    jr $ra
+
+# ========== DIGITO 5 ==========
+draw5:
+    #  ###
+    #  #
+    #  #
+    #  ###
+    #    #
+    #  ###
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha1
+    addi $a1,$s1,1
+    addi $a0,$s0,0  
+    jal DrawDot
+
+    # linha2
+    addi $a1,$s1,2
+    addi $a0,$s0,0  
+    jal DrawDot
+
+    # linha3
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    jr $ra
+
+# ========== DIGITO 6 ==========
+draw6:
+    #  ###
+    #  #
+    #  #
+    #  ###
+    #  # #
+    #  ###
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha1
+    addi $a1,$s1,1
+    addi $a0,$s0,0 
+     jal DrawDot
+
+
+    # linha2
+    addi $a1,$s1,2
+    addi $a0,$s0,0  
+    jal DrawDot
+
+
+    # linha3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2 
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+    jr $ra
+
+# ========== DIGITO 7 ==========
+draw7:
+    #  ###
+    #    #
+    #    #
+    #   #
+    #  #
+    #  #
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha1
+    addi $a1,$s1,1
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha2
+    addi $a1,$s1,2
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha3
+    addi $a1,$s1,3
+    addi $a0,$s0,1  
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,0 
+     jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    jr $ra
+
+# ========== DIGITO 8 ==========
+draw8:
+    #  ###
+    #  # #
+    #  # #
+    #  ###
+    #  # #
+    #  ###
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linhas1–2
+    li $t3,1
+draw8_loop1:
+    add $a1,$s1,$t3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+    addi $t3,$t3,1
+    blt $t3,3,draw8_loop1
+
+    # linha3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linhas 4–5
+    li $t3,4
+draw8_loop2:
+    add $a1,$s1,$t3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    addi $t3,$t3,1
+    blt $t3,6,draw8_loop2
+    jr $ra
+
+# ========== DIGITO 9 ==========
+draw9:
+    #  ###
+    #  # #
+    #  # #
+    #  ###
+    #    #
+    #    #
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha1–2
+    li $t3,1
+draw9_toploop:

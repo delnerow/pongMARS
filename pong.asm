@@ -28,20 +28,22 @@
 				.word 1 # posicao x
 		p1_up: 		.word 0
 		p1_down: 	.word 0
+		p1_score:  	.word 0
 #===================================================================#
 		p2Raquete:
 				.word 1  # posicao y do topo
 				.word 30 # posicao x
 		p2_up:  	.word 0
 		p2_down: 	.word 0
+		p2_score:  	.word 0
 #===================================================================#			
 		Bola:
 			.word 16  #v y da bola
 			.word 16 # x da bola
 		direcao:
 			.word 0 # componente y
-			.word 1 # component x
-		velocidade: .word 0 
+			.word -1 # component x
+		velocidadeMax: .word 3 
 			
 
 
@@ -49,18 +51,25 @@
 .text   
 .globl main	
 
-
+config:
+ #jal clearScreen
+ jal showScore
+ jal DrawRaquetes # desenha as raquetes no display
 
 # loop incial, por enquanto
 main:
-	# j clearScreen
+	lw $a0, p1_score
+	lw $a1, p2_score
+	beq $a0, 10, gameWin1
+	beq $a1, 10, gameWin2
 	jal encostaCanto
-	jal DrawRaquetes # desenha as raquetes no display
+	
 	
 	## frames
 	addi $v0, $zero, 32
-	addi $a0, $zero, 60 # ms entre frames
+	addi $a0, $zero, 54 # ms entre frames
 	syscall
+	#jal dotLine
     	j handleInput
     		 	
 quit:
@@ -68,7 +77,9 @@ quit:
     syscall
 
 
+# ===================  Dinamica da Bola  ==================== #
 # a3 - y da raquete 
+# a2 - qual raquete (1 ou 2)
 # a1 - y da bola
 # Ver se o y da bola encosta em algum y da raquete
 encostaBola:
@@ -86,18 +97,36 @@ encostaBola:
 rebateBola:
 	lw $t1, direcao # componente y
 	lw $t2, direcao + 4 # component x
-	la $t3, angulos
+	la $t3, angulos  # lookup table das reflexoes
 	sll $t0, $t0, 2
 	add $t0, $t3, $t0
 	lw $t0, 0($t0)
-	la $t1, ($t0)
+	sw $t0, direcao
+	
+	
+	lw $t4, velocidadeMax
+	bgtz $t2, aceleraBola
+	subi $t2, $t2, 1 # bola fica mais rapida (quando eh negativa a direcao)
+	add $t3, $t2, $t4
+	li $v0, -1
+	beqz $t3, resetVelocidade
 	sub $t2, $zero, $t2
-	sw $t1, direcao
 	sw $t2, direcao + 4 
 	j moveBola
 	
-
-	
+	aceleraBola:
+		addi $t2, $t2, 1 # bola fica mais rapida (quando eh negativa a direcao)
+		sub $t3, $t2, $t4
+		li $v0, 1
+		beqz $t3, resetVelocidade
+		sub $t2, $zero, $t2
+		sw $t2, direcao + 4 
+		j moveBola
+	resetVelocidade:
+		la $t2, ($v0)
+		sub $t2, $zero, $t2
+		sw $t2, direcao + 4 
+		j moveBola	
 
 inverteY:
 	lw $t1, direcao # componente y
@@ -108,12 +137,22 @@ inverteY:
 encostaCanto:
 	lw $a0, Bola+4  # x da bola
 	lw $a1, Bola # y da bola
+	
 	lw $t2, p1Raquete + 4 # x da raquete 1
+	addi $t2, $t2, 1 # borda da raquete 1
 	lw $a3, p1Raquete  # y da raquete 1
-	beq $a0, $t2, encostaBola
+	
+	sub $t2, $a0, $t2
+	li $a2, 0
+	blez $t2, encostaBola
+	
 	lw $t2, p2Raquete + 4 # x da raquete 2
+	subi $t2, $t2, 1 # borda da raquete 2
 	lw $a3, p2Raquete  # y da raquete 2
-	beq $a0, $t2, encostaBola
+	
+	sub $t2, $a0, $t2
+	li $a2, 1
+	bgez $t2, encostaBola
 	# nn encosta no canto, mas pode encostar no teto/chao
 
 encostaVertical:
@@ -130,14 +169,25 @@ moveBola:
 	sw $ra, 0($sp)
 	li $a2, 0
 	jal DrawDot
-	
-	lw $t1, direcao + 4 # direcao x
-	add $a0, $a0, $t1
-	sw $a0, Bola + 4
+moveImmediateBola:
+	lw $a0, Bola+4  # x da bola
+	lw $a1, Bola # y da bola
 	lw $t2, direcao # direcao y
 	add $a1, $a1, $t2
 	sw $a1, Bola
+	lw $t1, direcao + 4 # direcao x
+	add $a0, $a0, $t1
+	lw $t2, p1Raquete + 4 # x da raquete 1
+	sub $t2, $a0, $t2
+	li $v0, 1
+	blez $t2, corrigeUltrapasso
+	lw $t2, p2Raquete + 4 # x da raquete 2
+	sub $t2, $a0, $t2
+	li $v0, -1
+	bgez $t2, corrigeUltrapasso
 
+	desenha:
+	sw $a0, Bola + 4		
 	li $a2, 1
 	jal DrawDot
 	
@@ -145,22 +195,63 @@ moveBola:
 	addi $sp, $sp, 4
 	
 	jr $ra
+corrigeUltrapasso:
+	add $a0, $a0, $v0
+	j desenha
+	
+	
 resetBola:
 	addi $sp, $sp, -4
 	sw $ra, 0($sp)
+	move $s7, $a2
 	li $a2, 0
 	jal DrawDot
-	lw $ra, 0($sp)
-	addi $sp, $sp, 4
+	
 	li $t0, 16
 	sw $t0, Bola
 	sw $t0, Bola +4
 	lw $t1, direcao # componente y
 	li $t1, 0
 	sw $t1, direcao
-	la $a0, ($t0)  # x da bola
-	la $a1, ($t0)  # y da bola
-	j moveBola
+	
+	move $a0, $t0 # x da bola
+	move $a1, $t0  # y da bola
+	
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	beqz $s7, ponto2
+	j ponto1
+	
+ponto2:
+	lw $t0, p2_score
+	addi $t0, $t0,1
+	sw $t0, p2_score
+	lw $t1, direcao + 4 # componente x
+	li $t1, 1
+	sw $t1, direcao + 4
+	j donePonto
+
+ponto1:
+	lw $t0, p1_score
+	addi $t0, $t0,1
+	sw $t0, p1_score
+	lw $t1, direcao + 4 # componente x
+	li $t1, -1
+	sw $t1, direcao + 4
+	j donePonto
+	
+donePonto:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	jal showScore
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	j moveImmediateBola
+	
+# ===================  Dinamica dos inputs ==================== #	
+	
 # Lida com as teclas pressionadas
 handleInput:
 	lw $t3, KEY_DATA      # armazena teclas escritas
@@ -210,8 +301,11 @@ p1MoveUp:
 	subi $t1, $t1, 1
 	subi $t0, $t0, 1
 	sw $t0, p1Raquete
-	
 	lw $a0, p1Raquete + 4
+	
+	la $a1, ($t0)
+	li $a2, 3
+	jal DrawDot
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
@@ -225,8 +319,13 @@ p1MoveDown:
 	beq $t4, $t3, p2Status 
 	addi $t0, $t0, 1
 	sw $t0, p1Raquete
-	
 	lw $a0, p1Raquete + 4
+	
+    	add $t0, $t0, $t2
+	subi $t0, $t0, 1
+	la $a1, ($t0)
+	li $a2, 3
+	jal DrawDot
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
@@ -239,8 +338,11 @@ p2MoveUp:
 	subi $t1, $t1, 1
 	subi $t0, $t0, 1
 	sw $t0, p2Raquete
-	
 	lw $a0, p2Raquete + 4
+	
+	la $a1, ($t0)
+	li $a2, 3
+	jal DrawDot
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
@@ -256,8 +358,13 @@ p2MoveDown:
 	beq $t4, $t3,main 
 	addi $t0, $t0, 1
 	sw $t0, p2Raquete
-	
 	lw $a0, p2Raquete + 4
+	
+	add $t0, $t0, $t2
+	subi $t0, $t0, 1
+	la $a1, ($t0)
+	li $a2, 3
+	jal DrawDot
 	la $a1, ($t1)
 	li $a2, 0
 	jal DrawDot
@@ -282,9 +389,9 @@ CalculateAddress:
 # v1 eh valor mapeado real da cor	
 GetColor:
 	la $t0, ColorTable
-	sll $a2, $a2, 2
-	add $a2, $a2, $t0
-	lw $v1, 0($a2)
+	sll $a3, $a2, 2
+	add $a3, $a3, $t0
+	lw $v1, 0($a3)
 	
 	jr $ra
 # desenha ponto nas coordenadas (x,y) com cor especifica
@@ -321,7 +428,7 @@ DrawRaquetes:
 	sw $ra, 0($sp)
 	lw $s1, p1Raquete # p1 y
 	lw $s2, p1Raquete + 4 # p1 x
-	
+	li $a2, 3
 	lw $s3, p2Raquete	# p2 y
 	lw $s4, p2Raquete + 4  	# p2 x
 	
@@ -334,13 +441,11 @@ DrawRaquetes:
 		#raquete esquerda
 		la $a0, ($s2)
 		add $a1, $s1, $s0
-		li $a2, 3
 		jal DrawDot 
 		
 		#raquete direita
 		la $a0, ($s4)
 		add $a1, $s3, $s0
-		li $a2, 3
 		jal DrawDot 
 		
 		addi $s0,$s0, 1	
@@ -352,17 +457,777 @@ DrawRaquetes:
 		addi $sp, $sp, 4
 		jr $ra
 clearScreen:
-	li $a2, 0
-	lw $t0, Dimensao
-	li $a0, 0
-	li $a1, 0
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	lw $s7, Dimensao
+	li $s0, 0
+	li $s1, 0
 	loopx:
-		beq $a0, $t0, somaY
+		beq $s0, $s7, somaY
+		move $a0, $s0
+		move $a1, $s1
+		li $a2, 0
 		jal DrawDot
-		addi $a0,$a0, 1
+		addi $s0,$s0, 1
 		j loopx
 	somaY:
-		beq $a1, $t0, main
-		addi $a1,$a1, 1
+		addi $s1,$s1, 1
+		beq $s1, $s7, doneClear
+		li $s0, 0
 		j loopx
-		
+	doneClear:
+		lw $ra, 0($sp)
+		addi $sp, $sp, 4
+		jr $ra
+dotLine:
+	addi $sp, $sp, -4
+	sw $ra, 0($sp)
+	lw $s7, Dimensao
+	srl $s0, $s7, 1
+	li $s1, 0
+	loopDot:
+		bge $s1, $s7, doneLine
+		la $a0, ($s0)
+		la $a1, ($s1)
+		li $a2, 4
+		jal DrawDot
+		addi $s1,$s1, 1
+		la $a1, ($s1)
+		li $a2, 4
+		jal DrawDot
+		addi $s1,$s1, 2
+		j loopDot
+	doneLine:
+	lw $ra, 0($sp)
+	addi $sp, $sp, 4
+	jr $ra
+# --------------------------------------------------------
+# showScore - desenha os placares dos jogadores
+# --------------------------------------------------------
+showScore:
+    addi $sp, $sp, -8
+    sw $ra, 4($sp)
+    sw $s0, 0($sp)
+
+    # ----- desenhar P1 -----
+    lw $s0, p1_score      # s0 = p1_score
+    li $a0, 4             # x
+    li $a1, 2             # y
+    move $a3, $s0         # dígito
+    jal drawDigit
+
+    # ----- desenhar P2 -----
+    lw $s0, p2_score
+    li $a0, 24            # x (lado direito)
+    li $a1, 2             # y
+    move $a3, $s0
+    jal drawDigit
+
+    lw $s0, 0($sp)
+    lw $ra, 4($sp)
+    addi $sp, $sp, 8
+    jr $ra
+	
+# --------------------------------------------------------
+# drawDigit(a0=a_x, a1=a_y, a3=dígito de 0 a 9)
+# --------------------------------------------------------
+drawDigit:
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
+    li $t0, 0
+	li $a2, 4
+    beq $a3, $t0, call0
+    li $t0, 1
+    beq $a3, $t0, call1
+    li $t0, 2
+    beq $a3, $t0, call2
+    li $t0, 3
+    beq $a3, $t0, call3
+    li $t0, 4
+    beq $a3, $t0, call4
+    li $t0, 5
+    beq $a3, $t0, call5
+    li $t0, 6
+    beq $a3, $t0, call6
+    li $t0, 7
+    beq $a3, $t0, call7
+    li $t0, 8
+    beq $a3, $t0, call8
+    li $t0, 9
+    beq $a3, $t0, call9
+
+    j digit_end
+
+call0: 
+jal drawNull
+jal draw0
+ j digit_end
+call1: 
+jal drawNull
+jal draw1
+ j digit_end
+call2:
+jal drawNull
+ jal draw2 
+j digit_end
+call3:
+jal drawNull
+ jal draw3
+ j digit_end
+call4:
+jal drawNull
+ jal draw4 
+j digit_end
+call5: 
+jal drawNull
+jal draw5 
+j digit_end
+call6:
+jal drawNull
+ jal draw6 
+j digit_end
+call7:
+jal drawNull
+ jal draw7 
+j digit_end
+call8: 
+jal drawNull
+jal draw8 
+j digit_end
+call9: 
+jal drawNull
+jal draw9 
+j digit_end
+
+digit_end:
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+	
+
+#############################################################
+#   FUNÇÕES DE DESENHO DOS NÚMEROS 0–9 (6x3 pixels)
+#   pivot = (a0,a1) = canto superior esquerdo
+#   a2 = cor
+#############################################################
+# ========== DIGITO BRANCO==========
+drawNull:
+	li $a2, 0
+	addi $sp, $sp, -4
+    	sw $ra, 0($sp)
+	add $s0,$a0,$zero
+    	add $s1,$a1,$zero
+    	li $s5,0
+	drawNulloop:
+	add  $a1,$s1,$s5
+	jal DrawDot
+    	addi $a0,$s0,1
+    	jal DrawDot
+    	addi $a0,$s0,2
+    	jal DrawDot
+   	addi $s5,$s5,1
+   	move $a0, $s0
+  	 blt $s5,6,drawNulloop
+  	 li $a2, 4
+  	 lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    move $a1, $s1
+   	 jr $ra
+# ========== DIGITO 0 ==========
+draw0:
+    #  ###
+    #  # #
+    #  # #
+    #  # #
+    #  # #
+    #  ###
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    
+    addi $s0,$a0,0     # coluna 0-2
+    addi $s1,$a1,0     # linha 0-5
+	
+    # linha 0
+    jal DrawDot
+    addi $a0,$s0,1
+    move $a1, $s1
+     jal DrawDot
+    addi $a0,$s0,2
+    move $a1, $s1
+    jal DrawDot
+    # linhas 1–4
+    addi $a1,$s1,1
+    li $s5, 0
+    draw0_loop1:
+        # coluna 0
+        addi $a0,$s0,0
+         jal DrawDot
+        # coluna 2
+        addi $a0,$s0,2
+        jal DrawDot
+        addi $a1,$a1,1
+        addi $s5, $s5, 1
+        bne $s5,5 draw0_loop1
+
+    # linha 5
+    addi $a0,$s0,0
+    addi $a1,$s1,5
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+
+
+# ========== DIGITO 1 ==========
+draw1:
+    #   #
+    #   #
+    #   #
+    #   #
+    #   #
+    #   #
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+    li $s5,0
+draw1_loop:
+    addi $a0,$s0,1
+    add  $a1,$s1,$s5
+    jal DrawDot
+    addi $s5,$s5,1
+    blt $s5,6,draw1_loop
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 2 ==========
+draw2:
+    #  ###
+    #    #
+    #    #
+    #  ###
+    #  #
+    #  ###
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha 0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 1
+    addi $a1,$s1,1
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha 2
+    addi $a1,$s1,2
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha 3
+    addi $a1,$s1,3
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 4
+    addi $a1,$s1,4
+    addi $a0,$s0,0 
+     jal DrawDot
+
+    # linha 5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 3 ==========
+draw3:
+    #  ###
+    #    #
+    #    #
+    #  ###
+    #    #
+    #  ###
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha 0
+    addi $a1,$s1,0
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 1
+    addi $a1,$s1,1
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 2
+    addi $a1,$s1,2
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha 3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 4
+    addi $a1,$s1,4
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha 5
+    addi $a1,$s1,5
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 4 ==========
+draw4:
+    #  # #
+    #  # #
+    #  # #
+    #  ###
+    #    #
+    #    #
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linhas 0–2
+    li $s5,0
+draw4_loop1:
+    add $a1,$s1,$s5 
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    addi $s5,$s5,1
+    move $a0, $s0
+    blt $s5,3,draw4_loop1
+
+    # linha 3 (meio)
+    addi $a1,$s1,3 
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linhas 4–5
+    addi $a1,$s1,4
+    addi $a0,$s0,2  
+    jal DrawDot
+    addi $a1,$s1,5
+    addi $a0,$s0,2  
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 5 ==========
+draw5:
+    #  ###
+    #  #
+    #  #
+    #  ###
+    #    #
+    #  ###
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha1
+    addi $a1,$s1,1
+    addi $a0,$s0,0  
+    jal DrawDot
+
+    # linha2
+    addi $a1,$s1,2
+    addi $a0,$s0,0  
+    jal DrawDot
+
+    # linha3
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 6 ==========
+draw6:
+    #  ###
+    #  #
+    #  #
+    #  ###
+    #  # #
+    #  ###
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha1
+    addi $a1,$s1,1
+    addi $a0,$s0,0 
+     jal DrawDot
+
+
+    # linha2
+    addi $a1,$s1,2
+    addi $a0,$s0,0  
+    jal DrawDot
+
+
+    # linha3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2 
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 7 ==========
+draw7:
+    #  ###
+    #    #
+    #    #
+    #   #
+    #  #
+    #  #
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linha1
+    addi $a1,$s1,1
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha2
+    addi $a1,$s1,2
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha3
+    addi $a1,$s1,3
+    addi $a0,$s0,1  
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,0 
+     jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 8 ==========
+draw8:
+    #  ###
+    #  # #
+    #  # #
+    #  ###
+    #  # #
+    #  ###
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linhas1–2
+    li $s5,1
+draw8_loop1:
+    add $a1,$s1,$s5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+    addi $s5,$s5,1
+    blt $s5,3,draw8_loop1
+
+    # linha3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+
+    # linhas 4–5
+    li $s5,4
+draw8_loop2:
+    add $a1,$s1,$s5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    addi $s5,$s5,1
+    blt $s5,6,draw8_loop2
+    # linha 6
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2 
+     jal DrawDot
+    
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+
+# ========== DIGITO 9 ==========
+draw9:
+    #  ###
+    #  # #
+    #  # #
+    #  ###
+    #    #
+    #    #
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha1–2
+    li $s5,1
+draw9_toploop:
+    add $a1,$s1,$s5
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+    addi $s5,$s5,1
+    blt $s5,3,draw9_toploop
+
+    # linha3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,2  
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+# ========== P ==========
+drawP:
+    #  ###
+    #  #  #
+    #  #  #
+    #  ###
+    #  #  
+    #  #  
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+    add $s0,$a0,$zero
+    add $s1,$a1,$zero
+
+    # linha0
+    addi $a1,$s1,0
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,1 
+     jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha1–2
+    li $s5,1
+drawP_toploop:
+    add $a1,$s1,$s5
+    addi $a0,$s0,0 
+     jal DrawDot
+    addi $a0,$s0,3  
+    jal DrawDot
+    addi $s5,$s5,1
+    blt $s5,3,drawP_toploop
+
+    # linha3 (meio)
+    addi $a1,$s1,3
+    addi $a0,$s0,0  
+    jal DrawDot
+    addi $a0,$s0,1  
+    jal DrawDot
+    addi $a0,$s0,2  
+    jal DrawDot
+
+    # linha4
+    addi $a1,$s1,4
+    addi $a0,$s0,0 
+    jal DrawDot
+
+    # linha5
+    addi $a1,$s1,5
+    addi $a0,$s0,0  
+    jal DrawDot
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
+    
+gameWin1:
+	jal clearScreen
+	li $a0, 12
+	li $a1, 5
+	li $a2, 4
+	jal drawP
+	li $a0, 17
+	li $a1, 5
+	li $a2, 4
+	jal draw1
+	j quit
+	
+gameWin2:
+	jal clearScreen
+	li $a0, 12
+	li $a1, 5
+	li $a2, 4
+	jal drawP
+	li $a0, 17
+	li $a1, 5
+	li $a2, 4
+	jal draw2
+	j quit
